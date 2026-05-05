@@ -1,0 +1,135 @@
+1 ) error reporting 
+
+
+package practical;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+
+public class Error {
+
+	static Set<String> IS = new HashSet<>(Arrays.asList("ADD", "SUB", "MULT", "MOVER", "MOVEM"));
+
+	static Set<String> DL = new HashSet<>(Arrays.asList("DC", "DS"));
+
+	static Set<String> AD = new HashSet<>(Arrays.asList("START", "END", "ORIGIN", "EQU", "LTORG"));
+
+	static Set<String> declared = new HashSet<>();
+	static Set<String> used = new HashSet<>();
+
+	static Set<String> duplicate = new HashSet<>();
+	static Set<String> invalidMnemonic = new HashSet<>();
+
+	public static void main(String[] args) throws Exception {
+
+		BufferedReader br = new BufferedReader(new FileReader("input.txt"));
+		String line;
+		int lineNo = 0;
+
+		while ((line = br.readLine()) != null) {
+			lineNo++;
+
+			line = line.split("//")[0].trim(); // remove comments
+			if (line.isEmpty())
+				continue;
+
+			String parts[] = line.split("\\s+");
+
+			String label = null, opcode, operand = null;
+
+			if (parts.length == 3) {
+				label = parts[0];
+				opcode = parts[1];
+				operand = parts[2];
+			} else {
+				opcode = parts[0];
+				if (parts.length > 1)
+					operand = parts[1];
+			}
+
+			// Convert
+			if (opcode.equals("LOAD"))
+				opcode = "MOVER";
+			if (opcode.equals("STORE"))
+				opcode = "MOVEM";
+
+			// ❌ Invalid mnemonic
+			if (!IS.contains(opcode) && !DL.contains(opcode) && !AD.contains(opcode)) {
+				invalidMnemonic.add("Line " + lineNo + ": " + opcode);
+				continue;
+			}
+
+			// ❌ Duplicate symbol
+			if (label != null) {
+				if (declared.contains(label)) {
+					duplicate.add("Line " + lineNo + ": " + label);
+				} else {
+					declared.add(label);
+				}
+			}
+
+			// Track usage
+			if (operand != null && !operand.startsWith("=") && !operand.matches("\\d+")) {
+				used.add(operand);
+			}
+		}
+
+		br.close();
+
+		// ===== ERROR REPORT =====
+
+		System.out.println("====== ERROR REPORT ======");
+
+		// Invalid Mnemonics
+		for (String s : invalidMnemonic) {
+			System.out.println("ERROR: Invalid mnemonic -> " + s);
+		}
+
+		// Duplicate symbols
+		for (String s : duplicate) {
+			System.out.println("ERROR: Duplicate symbol -> " + s);
+		}
+
+		// Undefined symbols
+		for (String s : used) {
+			if (!declared.contains(s)) {
+				System.out.println("ERROR: Symbol not declared -> " + s);
+			}
+		}
+
+		// Declared but not used
+		for (String s : declared) {
+			if (!used.contains(s)) {
+				System.out.println("WARNING: Symbol declared but not used -> " + s);
+			}
+		}
+	}
+}
+
+
+
+input.txt: 
+START 200
+A DC 5
+B DS 3
+A DC 10
+LOAD A
+ADD X
+MULT Y
+FOO Z
+ORIGIN A+2
+SUB B
+STORE Z
+C EQU D
+END
+
+
+
+Error Type	Example
+Invalid mnemonic	FOO Z
+Duplicate symbol	A DC 5 & A DC 10
+Undefined symbol	ADD X
+Declared but unused
