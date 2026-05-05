@@ -1,245 +1,309 @@
-ass1 ) two pass assembler
+ass1 ) two pass assembler with error reporting
 
+package practical;
 
-package mypackage;
-import java.io.*;
-import java.util.*;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
-class TwoPassAssembler {
+class Assignment1 {
 
-    static ArrayList<String> sym = new ArrayList<>();
-    static ArrayList<Integer> symAddr = new ArrayList<>();
+	static ArrayList<String> sym = new ArrayList<>();
+	static ArrayList<Integer> symAddr = new ArrayList<>();
 
-    static ArrayList<String> lit = new ArrayList<>();
-    static ArrayList<Integer> litAddr = new ArrayList<>();
+	static ArrayList<String> lit = new ArrayList<>();
+	static ArrayList<Integer> litAddr = new ArrayList<>();
 
-    static ArrayList<Integer> pool = new ArrayList<>();
-    static ArrayList<String> IC = new ArrayList<>();
+	static ArrayList<Integer> pool = new ArrayList<>();
+	static ArrayList<String> IC = new ArrayList<>();
 
-    static int LC = 0;
-    static int startLC = 0;
+	static int LC = 0;
+	static int startLC = 0;
 
-    static Map<String, Integer> IS = new HashMap<>();
-    static Map<String, Integer> DL = new HashMap<>();
-    static Map<String, Integer> AD = new HashMap<>();
+	static Map<String, Integer> IS = new HashMap<>();
+	static Map<String, Integer> DL = new HashMap<>();
+	static Map<String, Integer> AD = new HashMap<>();
 
-    static {
-        IS.put("ADD", 1);
-        IS.put("SUB", 2);
-        IS.put("MULT", 3);
-        IS.put("MOVER", 4);
-        IS.put("MOVEM", 5);
+	// 🔥 NEW: error tracking
+	static Set<String> usedSymbols = new HashSet<>();
+	static Set<String> declaredSymbols = new HashSet<>();
+	static Set<String> duplicateSymbols = new HashSet<>();
+	static Set<String> invalidMnemonics = new HashSet<>();
 
-        DL.put("DC", 1);
-        DL.put("DS", 2);
+	static {
+		IS.put("ADD", 1);
+		IS.put("SUB", 2);
+		IS.put("MULT", 3);
+		IS.put("MOVER", 4);
+		IS.put("MOVEM", 5);
 
-        AD.put("START", 1);
-        AD.put("END", 2);
-        AD.put("ORIGIN", 3);
-        AD.put("EQU", 4);
-        AD.put("LTORG", 5);
-    }
+		DL.put("DC", 1);
+		DL.put("DS", 2);
 
-    static void addSymbol(String s, int addr) {
-        int index = sym.indexOf(s);
-        if (index == -1) {
-            sym.add(s);
-            symAddr.add(addr);
-        } else if (symAddr.get(index) == -1 && addr != -1) {
-            symAddr.set(index, addr);
-        }
-    }
+		AD.put("START", 1);
+		AD.put("END", 2);
+		AD.put("ORIGIN", 3);
+		AD.put("EQU", 4);
+		AD.put("LTORG", 5);
+	}
 
-    static void addLiteral(String l) {
-        if (!lit.contains(l)) {
-            lit.add(l);
-            litAddr.add(-1);
-        }
-    }
+	// 🔥 UPDATED
+	static void addSymbol(String s, int addr) {
+		int index = sym.indexOf(s);
 
-    static void processLiterals() {
-        int start = pool.get(pool.size() - 1);
-        boolean added = false;
+		if (index == -1) {
+			sym.add(s);
+			symAddr.add(addr);
+			declaredSymbols.add(s);
+		} else {
+			// Duplicate definition
+			if (addr != -1 && symAddr.get(index) != -1) {
+				duplicateSymbols.add(s);
+			}
+			// Fill forward reference
+			if (symAddr.get(index) == -1 && addr != -1) {
+				symAddr.set(index, addr);
+			}
+		}
+	}
 
-        for (int i = start; i < lit.size(); i++) {
-            if (litAddr.get(i) == -1) {
-                litAddr.set(i, LC);
-                IC.add("(DL,01) (C," + lit.get(i).replace("=", "").replace("'", "") + ")");
-                LC++;
-                added = true;
-            }
-        }
+	static void addLiteral(String l) {
+		if (!lit.contains(l)) {
+			lit.add(l);
+			litAddr.add(-1);
+		}
+	}
 
-        if (added) pool.add(lit.size());
-    }
+	static void processLiterals() {
+		int start = pool.get(pool.size() - 1);
 
-    public static void main(String[] args) throws Exception {
+		for (int i = start; i < lit.size(); i++) {
+			if (litAddr.get(i) == -1) {
+				litAddr.set(i, LC);
+				IC.add("(DL,01) (C," + lit.get(i).replace("=", "").replace("'", "") + ")");
+				LC++;
+			}
+		}
+		pool.add(lit.size());
+	}
 
-        BufferedReader br = new BufferedReader(new FileReader("input.txt"));
-        String line;
+	public static void main(String[] args) throws Exception {
 
-        pool.add(0);
+		BufferedReader br = new BufferedReader(new FileReader("input.txt"));
+		String line;
 
-        while ((line = br.readLine()) != null) {
+		pool.add(0);
 
-            line = line.trim();
-            if (line.length() == 0) continue;
+		while ((line = br.readLine()) != null) {
 
-            String parts[] = line.split("\\s+");
+			line = line.trim();
+			if (line.length() == 0)
+				continue;
 
-            String label = null, opcode, operand = null;
+			String parts[] = line.split("\\s+");
 
-            if (parts.length == 3) {
-                label = parts[0];
-                opcode = parts[1];
-                operand = parts[2];
-            } else {
-                opcode = parts[0];
-                if (parts.length > 1) operand = parts[1];
-            }
+			String label = null, opcode, operand = null;
 
-            // Convert LOAD/STORE
-            if (opcode.equals("LOAD")) opcode = "MOVER";
-            if (opcode.equals("STORE")) opcode = "MOVEM";
+			if (parts.length == 3) {
+				label = parts[0];
+				opcode = parts[1];
+				operand = parts[2];
+			} else {
+				opcode = parts[0];
+				if (parts.length > 1)
+					operand = parts[1];
+			}
 
-            // START
-            if (opcode.equals("START")) {
-                LC = Integer.parseInt(operand);
-                startLC = LC;
-                IC.add("(AD,01) (C," + LC + ")");
-            }
+			// Convert LOAD/STORE
+			if (opcode.equals("LOAD"))
+				opcode = "MOVER";
+			if (opcode.equals("STORE"))
+				opcode = "MOVEM";
 
-            // ORIGIN
-            else if (opcode.equals("ORIGIN")) {
-                if (operand.contains("+")) {
-                    String temp[] = operand.split("\\+");
-                    int index = sym.indexOf(temp[0]);
-                    LC = symAddr.get(index) + Integer.parseInt(temp[1]);
-                } else {
-                    LC = Integer.parseInt(operand);
-                }
-                IC.add("(AD,03)");
-            }
+			// 🔥 INVALID MNEMONIC CHECK
+			if (!IS.containsKey(opcode) && !DL.containsKey(opcode) && !AD.containsKey(opcode)) {
+				invalidMnemonics.add(opcode);
+				continue;
+			}
 
-            // LTORG
-            else if (opcode.equals("LTORG")) {
-                processLiterals();                // 🔥 FIX: FIRST assign literals
-                IC.add("(AD,05)");
-            }
+			// START
+			if (opcode.equals("START")) {
+				LC = Integer.parseInt(operand);
+				startLC = LC;
+				IC.add("(AD,01) (C," + LC + ")");
+			}
 
-            // END
-            else if (opcode.equals("END")) {
-                processLiterals();                // 🔥 FIX: FIRST assign literals
-                IC.add("(AD,02)");
-                break; 
-            }
+			// ORIGIN
+			else if (opcode.equals("ORIGIN")) {
+				if (operand.contains("+")) {
+					String temp[] = operand.split("\\+");
+					int index = sym.indexOf(temp[0]);
+					if (index == -1 || symAddr.get(index) == -1) {
+						usedSymbols.add(temp[0]); // unresolved
+						LC = 0;
+					} else {
+						LC = symAddr.get(index) + Integer.parseInt(temp[1]);
+					}
+				} else {
+					LC = Integer.parseInt(operand);
+				}
+				IC.add("(AD,03)");
+			}
 
-            // EQU
-            else if (opcode.equals("EQU")) {
-                int ref = sym.indexOf(operand);
-                addSymbol(label, symAddr.get(ref));
-                IC.add("(AD,04)");
-            }
+			// LTORG
+			else if (opcode.equals("LTORG")) {
+				processLiterals();
+				IC.add("(AD,05)");
+			}
 
-            // DS / DC
-            else if (DL.containsKey(opcode)) {
+			// END
+			else if (opcode.equals("END")) {
+				processLiterals();
+				IC.add("(AD,02)");
+				break;
+			}
 
-                addSymbol(label, LC);
+			// EQU
+			else if (opcode.equals("EQU")) {
+				int ref = sym.indexOf(operand);
+				if (ref == -1) {
+					usedSymbols.add(operand);
+				} else {
+					addSymbol(label, symAddr.get(ref));
+				}
+				IC.add("(AD,04)");
+			}
 
-                if (opcode.equals("DS")) {
-                    IC.add("(DL,02) (C," + operand + ")");
-                    LC += Integer.parseInt(operand);
-                } else {
-                    IC.add("(DL,01) (C," + operand + ")");
-                    LC++;
-                }
-            }
+			// DS / DC
+			else if (DL.containsKey(opcode)) {
 
-            // Instruction
-            else if (IS.containsKey(opcode)) {
+				addSymbol(label, LC);
 
-                if (label != null) addSymbol(label, LC);
+				if (opcode.equals("DS")) {
+					IC.add("(DL,02) (C," + operand + ")");
+					LC += Integer.parseInt(operand);
+				} else {
+					IC.add("(DL,01) (C," + operand + ")");
+					LC++;
+				}
+			}
 
-                String icLine = "(IS," + String.format("%02d", IS.get(opcode)) + ")";
+			// Instruction
+			else if (IS.containsKey(opcode)) {
 
-                if (operand != null) {
+				if (label != null)
+					addSymbol(label, LC);
 
-                    if (operand.startsWith("=")) {
-                        addLiteral(operand);
-                        int index = lit.indexOf(operand);
-                        icLine += " (L," + index + ")";
-                    } else {
-                        addSymbol(operand, -1);
-                        int index = sym.indexOf(operand);
-                        icLine += " (S," + index + ")";
-                    }
-                }
+				String icLine = "(IS," + String.format("%02d", IS.get(opcode)) + ")";
 
-                IC.add(icLine);
-                LC++;
-            }
+				if (operand != null) {
 
-            else {
-                System.out.println("WARNING: Invalid mnemonic -> " + opcode);
-            }
-        }
+					if (operand.startsWith("=")) {
+						addLiteral(operand);
+						int index = lit.indexOf(operand);
+						icLine += " (L," + index + ")";
+					} else {
+						usedSymbols.add(operand);
+						addSymbol(operand, -1);
+						int index = sym.indexOf(operand);
+						icLine += " (S," + index + ")";
+					}
+				}
 
-        br.close();
+				IC.add(icLine);
+				LC++;
+			}
+		}
 
-        // ===== OUTPUT =====
+		br.close();
 
-        System.out.println("\nSYMBOL TABLE:");
-        for (int i = 0; i < sym.size(); i++)
-            System.out.println(sym.get(i) + " -> " + symAddr.get(i));
+		// ===== OUTPUT =====
 
-        System.out.println("\nLITERAL TABLE:");
-        for (int i = 0; i < lit.size(); i++)
-            System.out.println(lit.get(i) + " -> " + litAddr.get(i));
+		System.out.println("\nSYMBOL TABLE:");
+		for (int i = 0; i < sym.size(); i++)
+			System.out.println(sym.get(i) + " -> " + symAddr.get(i));
 
-        System.out.println("\nPOOL TABLE:");
-        for (int i = 0; i < pool.size(); i++)
-            System.out.println(pool.get(i));
+		System.out.println("\nLITERAL TABLE:");
+		for (int i = 0; i < lit.size(); i++)
+			System.out.println(lit.get(i) + " -> " + litAddr.get(i));
 
-        System.out.println("\nINTERMEDIATE CODE:");
-        for (String s : IC)
-            System.out.println(s);
+		System.out.println("\nPOOL TABLE:");
+		for (int i = 0; i < pool.size(); i++)
+			System.out.println(pool.get(i));
 
-        // ===== PASS 2 =====
+		System.out.println("\nINTERMEDIATE CODE:");
+		for (String s : IC)
+			System.out.println(s);
 
-        System.out.println("\nMACHINE CODE:");
+		// ===== ERROR REPORT =====
 
-        int lc2 = startLC;
+		System.out.println("\nERROR REPORT:");
 
-        for (String s : IC) {
+		// Invalid Mnemonics
+		for (String s : invalidMnemonics) {
+			System.out.println("ERROR: Invalid mnemonic -> " + s);
+		}
 
-            if (s.contains("IS")) {
+		// Duplicate Symbols
+		for (String s : duplicateSymbols) {
+			System.out.println("ERROR: Duplicate symbol definition -> " + s);
+		}
 
-                String partsMC[] = s.split(" ");
-                int opcode = Integer.parseInt(partsMC[0].substring(4, 6));
+		// Undefined symbols
+		for (String s : usedSymbols) {
+			int index = sym.indexOf(s);
+			if (index != -1 && symAddr.get(index) == -1) {
+				System.out.println("ERROR: Symbol not declared -> " + s);
+			}
+		}
 
-                int addr = 0;
+		// Declared but not used
+		for (String s : declaredSymbols) {
+			if (!usedSymbols.contains(s)) {
+				System.out.println("WARNING: Symbol declared but not used -> " + s);
+			}
+		}
 
-                if (partsMC.length > 1) {
+		// ===== PASS 2 =====
 
-                    if (partsMC[1].contains("S")) {
-                        int index = Integer.parseInt(partsMC[1].replaceAll("[^0-9]", ""));
-                        addr = symAddr.get(index);
-                    } else if (partsMC[1].contains("L")) {
-                        int index = Integer.parseInt(partsMC[1].replaceAll("[^0-9]", ""));
-                        addr = litAddr.get(index);
-                    }
-                }
+		System.out.println("\nMACHINE CODE:");
 
-                if (addr == -1) {
-                    System.out.println(lc2 + "\t" + opcode + "\tERROR");
-                } else {
-                    System.out.println(lc2 + "\t" + opcode + "\t" + addr);
-                }
+		int lc2 = startLC;
 
-                lc2++;
-            }
-        }
-    }
+		for (String s : IC) {
+
+			if (s.contains("IS")) {
+
+				String partsMC[] = s.split(" ");
+				int opcode = Integer.parseInt(partsMC[0].substring(4, 6));
+
+				int addr = 0;
+
+				if (partsMC.length > 1) {
+
+					if (partsMC[1].contains("S")) {
+						int index = Integer.parseInt(partsMC[1].replaceAll("[^0-9]", ""));
+						addr = symAddr.get(index);
+					} else if (partsMC[1].contains("L")) {
+						int index = Integer.parseInt(partsMC[1].replaceAll("[^0-9]", ""));
+						addr = litAddr.get(index);
+					}
+				}
+
+				if (addr == -1) {
+					System.out.println(lc2 + "\t" + opcode + "\tERROR");
+				} else {
+					System.out.println(lc2 + "\t" + opcode + "\t" + addr);
+				}
+
+				lc2++;
+			}
+		}
+	}
 }
 
 
