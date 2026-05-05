@@ -1,0 +1,287 @@
+5 ) TAC for the given expression
+
+package practical;
+
+import java.util.Scanner;
+import java.util.Stack;
+
+public class ass5 {
+	static int tempCount = 1;
+
+	public static void main(String[] args) {
+		Scanner sc = new Scanner(System.in);
+		System.out.print("Enter expression: ");
+		String expr = sc.nextLine();
+
+		String postfix = infixToPostfix(expr);
+		generateTAC(postfix);
+	}
+
+	// Function to return precedence
+	static int precedence(char ch) {
+		if (ch == '+' || ch == '-')
+			return 1;
+		if (ch == '*' || ch == '/')
+			return 2;
+		return 0;
+	}
+
+	// Convert infix to postfix
+	static String infixToPostfix(String expr) {
+		Stack<Character> stack = new Stack<>();
+		StringBuilder result = new StringBuilder();
+
+		for (char ch : expr.toCharArray()) {
+			if (Character.isLetterOrDigit(ch)) {
+				result.append(ch);
+			} else if (ch == '(') {
+				stack.push(ch);
+			} else if (ch == ')') {
+				while (!stack.isEmpty() && stack.peek() != '(') {
+					result.append(stack.pop());
+				}
+				stack.pop();
+			} else {
+				while (!stack.isEmpty() && precedence(stack.peek()) >= precedence(ch)) {
+					result.append(stack.pop());
+				}
+				stack.push(ch);
+			}
+		}
+
+		while (!stack.isEmpty()) {
+			result.append(stack.pop());
+		}
+
+		return result.toString();
+	}
+
+	// Generate TAC from postfix
+	static void generateTAC(String postfix) {
+		Stack<String> stack = new Stack<>();
+
+		for (char ch : postfix.toCharArray()) {
+			if (Character.isLetterOrDigit(ch)) {
+				stack.push(ch + "");
+			} else {
+				String op2 = stack.pop();
+				String op1 = stack.pop();
+
+				String temp = "t" + tempCount++;
+				System.out.println(temp + " = " + op1 + " " + ch + " " + op2);
+
+				stack.push(temp);
+			}
+		}
+	}
+}
+
+input :  a*b+c-(d+e)
+
+
+5 ) TAC for the if else statements  
+
+package practical;
+import java.util.Scanner;
+public class ass51 {
+
+	static int tempCount = 1;
+	static int labelCount = 1;
+
+	public static void main(String[] args) {
+		Scanner sc = new Scanner(System.in);
+
+		System.out.println("Enter IF statement:");
+		String input = sc.nextLine();
+
+		generateTAC(input);
+	}
+
+	static void generateTAC(String input) {
+
+		String condition = input.substring(input.indexOf("(") + 1, input.indexOf(")")).trim();
+		String assignment = input.substring(input.indexOf(")") + 1).trim();
+
+		// Extract condition parts properly
+		String left = "", op = "", right = "";
+
+		if (condition.contains(">")) {
+			String[] parts = condition.split(">");
+			left = parts[0].trim();
+			op = ">";
+			right = parts[1].trim();
+		} else if (condition.contains("<")) {
+			String[] parts = condition.split("<");
+			left = parts[0].trim();
+			op = "<";
+			right = parts[1].trim();
+		} else if (condition.contains("==")) {
+			String[] parts = condition.split("==");
+			left = parts[0].trim();
+			op = "==";
+			right = parts[1].trim();
+		}
+
+		String L1 = "L" + labelCount++;
+		String L2 = "L" + labelCount++;
+
+		// Handle right expression (like B + C)
+		String rightTemp = handleExpression(right);
+
+		System.out.println("IF " + left + " " + op + " " + rightTemp + " GOTO " + L1);
+		System.out.println("GOTO " + L2);
+
+		// Assignment
+		String[] assignParts = assignment.split("=");
+
+		String var = assignParts[0].trim();
+		String expr = assignParts[1].trim();
+
+		String resultTemp = handleExpression(expr);
+
+		System.out.println(L1 + ": " + var + " = " + resultTemp);
+		System.out.println(L2 + ":");
+	}
+
+	static String handleExpression(String expr) {
+
+		expr = expr.trim();
+
+		if (!expr.contains("+") && !expr.contains("*") && !expr.contains("-") && !expr.contains("/")) {
+			return expr;
+		}
+
+		char op = 0;
+
+		if (expr.contains("+"))
+			op = '+';
+		else if (expr.contains("*"))
+			op = '*';
+		else if (expr.contains("-"))
+			op = '-';
+		else if (expr.contains("/"))
+			op = '/';
+
+		String[] parts = expr.split("\\" + op);
+
+		String t = "t" + tempCount++;
+		System.out.println(t + " = " + parts[0].trim() + " " + op + " " + parts[1].trim());
+
+		return t;
+	}
+}
+
+input :1)    if (A>B) A = A + B
+2 )     (A < B + C) X = Y * Z
+
+6) TAC For multi line statements
+
+package practical;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+
+public class ass51 {
+
+	static int tempCount = 1;
+	static int labelCount = 1;
+
+	public static void main(String[] args) {
+		Scanner sc = new Scanner(System.in);
+
+		System.out.println("Enter code (multi-line, end with empty line):");
+
+		List<String> lines = new ArrayList<>();
+		while (true) {
+			String line = sc.nextLine();
+			if (line.isEmpty())
+				break;
+			lines.add(line.trim());
+		}
+
+		generateTAC(lines);
+	}
+
+	static void generateTAC(List<String> lines) {
+
+		String firstLine = lines.get(0);
+
+		// Extract condition
+		String condition = firstLine.substring(firstLine.indexOf("(") + 1, firstLine.indexOf(")")).trim();
+
+		String left = "", op = "", right = "";
+
+		if (condition.contains("<")) {
+			String[] parts = condition.split("<");
+			left = parts[0].trim();
+			op = "<";
+			right = parts[1].trim();
+		} else if (condition.contains(">")) {
+			String[] parts = condition.split(">");
+			left = parts[0].trim();
+			op = ">";
+			right = parts[1].trim();
+		}
+
+		String L1 = "L" + labelCount++;
+		String L2 = "L" + labelCount++;
+
+		String rightTemp = handleExpression(right);
+
+		System.out.println("IF " + left + " " + op + " " + rightTemp + " GOTO " + L1);
+		System.out.println("GOTO " + L2);
+
+		// IF BODY (line 2)
+		String ifStmt = lines.get(1).replace(";", "").trim();
+
+		System.out.print(L1 + ": ");
+		generateAssignment(ifStmt);
+
+		// After IF (remaining lines)
+		System.out.println(L2 + ":");
+
+		for (int i = 2; i < lines.size(); i++) {
+			String stmt = lines.get(i).replace(";", "").trim();
+			generateAssignment(stmt);
+		}
+	}
+
+	static void generateAssignment(String stmt) {
+
+		String[] parts = stmt.split("=");
+
+		String var = parts[0].trim();
+		String expr = parts[1].trim();
+
+		String temp = handleExpression(expr);
+
+		System.out.println(var + " = " + temp);
+	}
+
+	static String handleExpression(String expr) {
+
+		if (!expr.contains("+") && !expr.contains("-") && !expr.contains("*") && !expr.contains("/")) {
+			return expr;
+		}
+
+		char op = 0;
+
+		if (expr.contains("+"))
+			op = '+';
+		else if (expr.contains("-"))
+			op = '-';
+		else if (expr.contains("*"))
+			op = '*';
+		else if (expr.contains("/"))
+			op = '/';
+
+		String[] parts = expr.split("\\" + op);
+
+		String t = "t" + tempCount++;
+		System.out.println(t + " = " + parts[0].trim() + " " + op + " " + parts[1].trim());
+
+		return t;
+	}
+}
+

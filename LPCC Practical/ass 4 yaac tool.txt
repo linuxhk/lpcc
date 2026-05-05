@@ -1,0 +1,226 @@
+yaac tool  assignment 
+
+install cmd : sudo apt install bison flex gcc
+
+Run format:
+yacc -d file.y
+gcc y.tab.c -o out -lm
+./out
+
+4.A — Arithmetic Expression Evaluator
+expr.y
+
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+int yylex();
+int yyerror();
+%}
+
+%token NUMBER
+
+%left '+' '-'
+%left '*' '/'
+
+%%
+
+input:
+    expr '\n' { printf("Result = %d\n", $1); return 0; }
+;
+
+expr:
+    expr '+' expr { $$ = $1 + $3; }
+  | expr '-' expr { $$ = $1 - $3; }
+  | expr '*' expr { $$ = $1 * $3; }
+  | expr '/' expr { $$ = $1 / $3; }
+  | NUMBER        { $$ = $1; }
+;
+
+%%
+
+int yylex() {
+    char c;
+
+    /* skip spaces */
+    while ((c = getchar()) == ' ');
+
+    /* number handling */
+    if (isdigit(c)) {
+        ungetc(c, stdin);
+        scanf("%d", &yylval);
+        return NUMBER;
+    }
+
+    /* newline (important!) */
+    if (c == '\n') return c;
+
+    return c;
+}
+
+int yyerror() {
+    printf("Invalid Expression\n");
+    return 0;
+}
+
+int main() {
+    printf("Enter expression:\n");
+    yyparse();
+    return 0;
+}
+
+
+
+4 B ) To evaluate or check built-in functions using YACC  tool  
+
+
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <ctype.h>
+
+#define YYSTYPE int
+
+int yylex();
+int yyerror();
+%}
+
+%token NUMBER STRING SQRT STRLEN
+
+%%
+
+input:
+    expr '\n' { printf("Result = %d\n", $1); return 0; }
+;
+
+expr:
+      SQRT '(' NUMBER ')'   { $$ = (int)sqrt($3); }
+    | STRLEN '(' STRING ')' { $$ = $3; }
+;
+
+%%
+
+int yylex() {
+    int c;
+
+    while ((c = getchar()) == ' ');
+
+    /* sqrt / strlen */
+    if (isalpha(c)) {
+        char buf[50];
+        int i = 0;
+        buf[i++] = c;
+
+        while (isalnum(c = getchar())) {
+            buf[i++] = c;
+        }
+        buf[i] = '\0';
+        ungetc(c, stdin);
+
+        if (strcmp(buf, "sqrt") == 0) return SQRT;
+        if (strcmp(buf, "strlen") == 0) return STRLEN;
+
+        return 0;
+    }
+
+    /* number */
+    if (isdigit(c)) {
+        ungetc(c, stdin);
+        scanf("%d", &yylval);
+        return NUMBER;
+    }
+
+    /* string → return length */
+    if (c == '"') {
+        int len = 0;
+        while ((c = getchar()) != '"') {
+            len++;
+        }
+        yylval = len;
+        return STRING;
+    }
+
+    if (c == '\n') return '\n';
+
+    return c;
+}
+
+int yyerror() {
+    printf("Invalid Expression\n");
+    return 0;
+}
+
+int main() {
+    printf("Enter function:\n");
+    yyparse();
+    return 0;
+}
+
+
+input : 
+sqrt(25)
+strlen("maths")
+
+
+
+4C )  To recognize valid variable name using YACC tool
+
+%{
+#include <stdio.h>
+#include <ctype.h>
+#include <string.h>
+
+#define YYSTYPE int
+
+int yylex();
+int yyerror();
+%}
+
+%token ID
+
+%%
+
+input:
+    ID { printf("Valid variable\n"); return 0; }
+;
+
+%%
+
+int yylex() {
+    char c;
+
+    /* skip spaces */
+    while ((c = getchar()) == ' ');
+
+    /* first character */
+    if (isalpha(c) || c == '_') {
+
+        while ((c = getchar()) != '\n' && c != EOF) {
+            if (!(isalnum(c) || c == '_')) {
+                return 0;  // invalid
+            }
+        }
+
+        return ID;
+    }
+
+    return 0;
+}
+
+int yyerror() {
+    printf("Invalid variable\n");
+    return 0;
+}
+
+int main() {
+    printf("Enter variable name:\n");
+    yyparse();
+    return 0;
+}
+
+input : name  - valid
+12name  - invaliud
+

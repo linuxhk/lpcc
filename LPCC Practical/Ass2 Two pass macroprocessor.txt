@@ -1,0 +1,280 @@
+package practical;
+
+// 2 pass macroprocessor  
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+class Assignment2 {
+
+	static class MNTEntry {
+		String name;
+		int mdtIndex;
+		List<String> params;
+
+		MNTEntry(String name, int mdtIndex, List<String> params) {
+			this.name = name;
+			this.mdtIndex = mdtIndex;
+			this.params = params;
+		}
+	}
+
+	static List<MNTEntry> MNT = new ArrayList<>();
+	static List<String> MDT = new ArrayList<>();
+	static Map<String, Integer> mntMap = new HashMap<>();
+	static List<String> input = new ArrayList<>();
+
+	// 🔥 store ALA logs separately
+	static List<String> alaLogs = new ArrayList<>();
+
+	public static void main(String[] args) throws Exception {
+//give path of input file . put in root folder
+//		List<String> input = Arrays.asList(
+//	    "LOAD A",
+//	    "STORE B",
+//
+//	    "MACRO",
+//	    "ABC",
+//		if file not work and remove bufferreader code
+		BufferedReader br = new BufferedReader(new FileReader("input2.txt"));
+		String line;
+
+		while ((line = br.readLine()) != null) {
+			if (!line.trim().isEmpty())
+				input.add(line.trim());
+		}
+		br.close();
+
+		pass1();
+
+		printAPTAB();
+		printMDT();
+		printMNT();
+		printIntermediate();
+
+		System.out.println("\n===== EXPANDED CODE =====");
+		pass2();
+
+		// 🔥 Print ALA AFTER expanded code
+		System.out.println("\n===== ACTUAL vs POSITIONAL (ALA) =====");
+		for (String s : alaLogs) {
+			System.out.println(s);
+		}
+	}
+
+	// ---------------- PASS 1 ----------------
+	static void pass1() {
+
+		for (int i = 0; i < input.size(); i++) {
+
+			if (input.get(i).equals("MACRO")) {
+
+				i++;
+				String[] header = input.get(i).split(" ");
+				String name = header[0];
+
+				List<String> params = new ArrayList<>();
+				for (int j = 1; j < header.length; j++) {
+					params.add(header[j]);
+				}
+
+				MNT.add(new MNTEntry(name, MDT.size(), params));
+				mntMap.put(name, MNT.size() - 1);
+
+				while (!input.get(++i).equals("MEND")) {
+					String def = input.get(i);
+
+					for (int j = 0; j < params.size(); j++) {
+						def = def.replace(params.get(j), "#" + (j + 1));
+					}
+
+					MDT.add(def);
+				}
+
+				MDT.add("MEND");
+			}
+		}
+	}
+
+	// ---------------- APTAB ----------------
+	static void printAPTAB() {
+		System.out.println("\n===== FORMAL vs POSITIONAL (APTAB) =====");
+
+		for (MNTEntry e : MNT) {
+
+			System.out.println("\nMACRO: " + e.name);
+
+			if (e.params.size() == 0) {
+				System.out.println("(No parameters)");
+				continue;
+			}
+
+			System.out.println("+-------------------+----------------------+");
+			System.out.println("| Formal Parameter  | Positional Parameter |");
+			System.out.println("+-------------------+----------------------+");
+
+			for (int i = 0; i < e.params.size(); i++) {
+				System.out.printf("| %-17s | %-20s |\n", e.params.get(i), "#" + (i + 1));
+			}
+
+			System.out.println("+-------------------+----------------------+");
+		}
+	}
+
+	// ---------------- MDT ----------------
+	static void printMDT() {
+		System.out.println("\n===== MDT (EARLY EXPANSION) =====");
+
+		System.out.println("+------+------------------+");
+		System.out.println("| Index| Instruction      |");
+		System.out.println("+------+------------------+");
+
+		for (int i = 0; i < MDT.size(); i++) {
+			System.out.printf("| %-4d | %-16s |\n", (i + 1), MDT.get(i));
+		}
+
+		System.out.println("+------+------------------+");
+	}
+
+	// ---------------- MNT ----------------
+	static void printMNT() {
+		System.out.println("\n===== MNT =====");
+
+		System.out.println("+--------+------------------+---------------+");
+		System.out.println("| Name   | No. of Params    | MDT Index     |");
+		System.out.println("+--------+------------------+---------------+");
+
+		for (MNTEntry e : MNT) {
+			System.out.printf("| %-6s | %-16d | %-13d |\n", e.name, e.params.size(), e.mdtIndex + 1);
+		}
+
+		System.out.println("+--------+------------------+---------------+");
+	}
+
+	// ---------------- INTERMEDIATE ----------------
+	static void printIntermediate() {
+		System.out.println("\n===== INTERMEDIATE CODE =====");
+
+		for (int i = 0; i < input.size(); i++) {
+
+			String line = input.get(i);
+
+			if (line.equals("MACRO")) {
+				while (!input.get(i).equals("MEND"))
+					i++;
+			} else {
+				System.out.println(line);
+			}
+		}
+	}
+
+	// ---------------- PASS 2 ----------------
+	static void pass2() {
+
+		for (int i = 0; i < input.size(); i++) {
+
+			String line = input.get(i);
+
+			if (line.equals("MACRO")) {
+				while (!input.get(i).equals("MEND"))
+					i++;
+			} else {
+
+				String[] parts = line.split(" ");
+				String word = parts[0];
+
+				if (mntMap.containsKey(word)) {
+					expand(word, parts, "");
+				} else {
+					System.out.println(line);
+				}
+			}
+		}
+	}
+
+	// ---------------- EXPANSION ----------------
+	static void expand(String name, String[] actual, String parent) {
+
+		MNTEntry entry = MNT.get(mntMap.get(name));
+		Map<String, String> ala = new HashMap<>();
+
+		// 🔥 STORE ALA instead of printing
+		if (entry.params.size() > 0) {
+
+			StringBuilder sb = new StringBuilder();
+			sb.append("\nMACRO CALL: ").append(name);
+
+			if (!parent.isEmpty()) {
+				sb.append(" (from ").append(parent).append(")");
+			}
+
+			sb.append("\n+-------------------+----------------------+\n");
+			sb.append("| Actual Parameter  | Positional Parameter |\n");
+			sb.append("+-------------------+----------------------+\n");
+
+			for (int i = 0; i < entry.params.size(); i++) {
+				ala.put("#" + (i + 1), actual[i + 1]);
+
+				sb.append(String.format("| %-17s | %-20s |\n", actual[i + 1], "#" + (i + 1)));
+			}
+
+			sb.append("+-------------------+----------------------+");
+			alaLogs.add(sb.toString());
+		}
+
+		int index = entry.mdtIndex;
+
+		while (!MDT.get(index).equals("MEND")) {
+
+			String line = MDT.get(index);
+
+			for (String key : ala.keySet()) {
+				line = line.replace(key, ala.get(key));
+			}
+
+			String first = line.split(" ")[0];
+
+			if (mntMap.containsKey(first)) {
+				expand(first, line.split(" "), name);
+			} else {
+				System.out.println(line);
+			}
+
+			index++;
+		}
+	}
+}
+
+
+//place the input.txt file in the root folder 
+input.txt: 
+LOAD A
+STORE B
+
+MACRO
+ABC
+LOAD p
+SUB q
+MEND
+
+MACRO
+ADDI &ARG
+LOAD X
+STORE &ARG
+MEND
+
+MACRO
+ADD5 &A1 &A2 &A3
+STORE &A2
+ADDI &A2
+ADDI &A3
+LOAD &A1
+LOAD &A3
+MEND
+
+ABC
+ADD5 D1 D2 D3
+END

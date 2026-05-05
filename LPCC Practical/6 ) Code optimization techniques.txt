@@ -1,0 +1,172 @@
+6 ) Code optimization techniques
+
+
+package practical;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+import java.util.Set;
+
+public class ass6 {
+
+	static Map<String, String> exprMap = new HashMap<>();
+	static Map<String, String> copyMap = new HashMap<>();
+	static List<String> optimized = new ArrayList<>();
+
+	public static void main(String[] args) {
+		Scanner sc = new Scanner(System.in);
+
+		System.out.print("Enter number of TAC lines: ");
+		int n = sc.nextInt();
+		sc.nextLine();
+
+		List<String> code = new ArrayList<>();
+
+		System.out.println("Enter TAC:");
+		for (int i = 0; i < n; i++) {
+			code.add(sc.nextLine());
+		}
+
+		optimize(code);
+	}
+
+	static void optimize(List<String> code) {
+
+		// 🔹 PASS 1: Apply optimizations
+		for (String line : code) {
+
+			String[] parts = line.split("=");
+			String lhs = parts[0].trim();
+			String rhs = parts[1].trim();
+
+			// ✅ Copy Propagation
+			if (copyMap.containsKey(rhs)) {
+				rhs = copyMap.get(rhs);
+			}
+
+			// ✅ Constant Folding
+			if (rhs.matches("\\d+ [+\\-*/] \\d+")) {
+				String[] t = rhs.split(" ");
+				int a = Integer.parseInt(t[0]);
+				int b = Integer.parseInt(t[2]);
+				int res = 0;
+
+				switch (t[1]) {
+				case "+":
+					res = a + b;
+					break;
+				case "-":
+					res = a - b;
+					break;
+				case "*":
+					res = a * b;
+					break;
+				case "/":
+					res = a / b;
+					break;
+				}
+
+				rhs = String.valueOf(res);
+			}
+
+			// ✅ Strength Reduction (x * 2 → x + x)
+			if (rhs.matches("[a-zA-Z]+ \\* 2")) {
+				String var = rhs.split(" ")[0];
+				rhs = var + " + " + var;
+			}
+
+			// ✅ Algebraic Simplification
+			if (rhs.endsWith("+ 0") || rhs.endsWith("- 0")) {
+				rhs = rhs.substring(0, rhs.length() - 4);
+			}
+			if (rhs.endsWith("* 1")) {
+				rhs = rhs.substring(0, rhs.length() - 4);
+			}
+
+			// ✅ Common Subexpression Elimination (CSE)
+			if (exprMap.containsKey(rhs)) {
+				rhs = exprMap.get(rhs);
+			} else {
+				exprMap.put(rhs, lhs);
+			}
+
+			// ✅ Copy Propagation store
+			if (!rhs.contains(" ")) {
+				copyMap.put(lhs, rhs);
+			}
+
+			optimized.add(lhs + " = " + rhs);
+		}
+
+		// 🔥 PASS 2: Correct Dead Code Elimination (Backward)
+
+		Set<String> needed = new HashSet<>();
+
+		// Assume last variable is needed (final output)
+		String lastLine = optimized.get(optimized.size() - 1);
+		String lastVar = lastLine.split("=")[0].trim();
+		needed.add(lastVar);
+
+		List<String> finalCode = new ArrayList<>();
+
+		// Traverse backward
+		for (int i = optimized.size() - 1; i >= 0; i--) {
+
+			String line = optimized.get(i);
+			String[] parts = line.split("=");
+
+			String lhs = parts[0].trim();
+			String rhs = parts[1].trim();
+
+			if (needed.contains(lhs)) {
+
+				finalCode.add(0, line); // add at beginning
+
+				for (String token : rhs.split(" ")) {
+					if (Character.isLetter(token.charAt(0))) {
+						needed.add(token);
+					}
+				}
+			}
+		}
+
+		// ✅ FINAL OUTPUT
+		System.out.println("\nOptimized Code:\n");
+		for (String line : finalCode) {
+			System.out.println(line);
+		}
+	}
+}
+
+
+input : 1) mix
+8
+t1 = a + b
+t2 = a + b
+t3 = t2 + 0
+t4 = t3 * 1
+t5 = 6 * 3
+t6 = x * 2
+t7 = t6
+t8 = t7
+
+Optimized Output : 
+t8 = x + x
+
+2)dead code 
+6
+t1 = a + b
+t2 = t1 * c
+t3 = d + e
+t4 = t3 * f
+t5 = t2 + 1
+t6 = t5
+ Optimized Output :	
+t6 = t5
+t5 = t2 + 1
+t2 = t1 * c
+t1 = a + b

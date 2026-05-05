@@ -1,0 +1,276 @@
+assignment 3  : lexical analyzer
+
+install cmd : sudo apt install flex gcc
+
+create folder with lex programs and create files inside that
+
+code run cmds: 
+lex file.l
+gcc lex.yy.c -o out
+./out
+
+if error : 
+sudo apt update --fix-missing
+sudo apt upgrade
+sudo apt install flex gcc
+
+
+press ctrl+D for see the symbol table
+
+3 a ) For parts of speech for subset of ENGLISH language without using SYMBOL TABLE
+
+input : she and he go by the blue house with a smart man
+
+%{
+#include <stdio.h>
+%}
+
+%%
+
+"he"|"she"|"we"|"they"|"it" { printf("PRONOUN: %s\n", yytext); }
+
+"car"|"house"|"man"|"state"|"ocean"|"country"|"city" { printf("NOUN: %s\n", yytext); }
+
+"come"|"go"|"walk"|"did"|"have"|"read"|"write" { printf("VERB: %s\n", yytext); }
+
+"pretty"|"old"|"blue"|"smart" { printf("ADJECTIVE: %s\n", yytext); }
+
+"abnormally"|"accidentally"|"actually"|"beautifully"|"bitterly"|"brightly"|"calmly" { printf("ADVERB: %s\n", yytext); }
+
+"by"|"with"|"about"|"until" { printf("PREPOSITION: %s\n", yytext); }
+
+"and"|"but"|"or"|"while"|"because" { printf("CONJUNCTION: %s\n", yytext); }
+
+"oh"|"wow"|"oops" { printf("INTERJECTION: %s\n", yytext); }
+
+[a-zA-Z]+ { printf("UNKNOWN WORD: %s\n", yytext); }
+
+[ \t\n] ;
+
+%%
+
+int main() {
+    printf("Enter English sentence:\n");
+    yylex();
+    return 0;
+}
+
+int yywrap() {
+    return 1;
+} 
+
+
+3b) grammer with symbol table 
+
+input : She and he walk with a smart man in the city wow
+
+code : 
+
+%{
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+char symtab[200][50];
+int count = 0;
+
+void toLower(char *word) {
+    for(int i=0; word[i]; i++)
+        word[i] = tolower(word[i]);
+}
+
+void add(char *word) {
+    char temp[50];
+    strcpy(temp, word);
+    toLower(temp);
+
+    for(int i=0;i<count;i++) {
+        if(strcmp(symtab[i], temp)==0)
+            return;
+    }
+    strcpy(symtab[count++], temp);
+}
+%}
+
+%%
+
+"he"|"she"|"we"|"they"|"it"|"He"|"She"|"We"|"They"|"It" { printf("PRONOUN: %s\n", yytext); add(yytext); }
+
+"car"|"house"|"man"|"state"|"ocean"|"country"|"city" { printf("NOUN: %s\n", yytext); add(yytext); }
+
+"come"|"go"|"walk"|"did"|"have"|"read"|"write" { printf("VERB: %s\n", yytext); add(yytext); }
+
+"pretty"|"old"|"blue"|"smart"|"Pretty"|"Old"|"Blue"|"Smart" { printf("ADJECTIVE: %s\n", yytext); add(yytext); }
+
+"abnormally"|"accidentally"|"actually"|"beautifully"|"bitterly"|"brightly"|"calmly" { printf("ADVERB: %s\n", yytext); add(yytext); }
+
+"by"|"with"|"about"|"until"|"By"|"With"|"About"|"Until" { printf("PREPOSITION: %s\n", yytext); add(yytext); }
+
+"and"|"but"|"or"|"while"|"because"|"And"|"But"|"Or"|"While"|"Because" { printf("CONJUNCTION: %s\n", yytext); add(yytext); }
+
+"oh"|"wow"|"oops"|"Oh"|"Wow"|"Oops" { printf("INTERJECTION: %s\n", yytext); add(yytext); }
+
+[a-zA-Z]+ { printf("UNKNOWN WORD: %s\n", yytext); add(yytext); }
+
+[ \t\n] ;
+
+%%
+
+int main() {
+    printf("Enter English sentence:\n");
+    yylex();
+
+    printf("\n===== SYMBOL TABLE =====\n");
+    printf("+------+----------------+\n");
+    printf("| Index| Word           |\n");
+    printf("+------+----------------+\n");
+
+    for(int i=0;i<count;i++) {
+        printf("| %-4d | %-14s |\n", i+1, symtab[i]);
+    }
+
+    printf("+------+----------------+\n");
+
+    return 0;
+}
+
+int yywrap() {
+    return 1;
+}
+
+
+
+
+3c ) c languge without symbol table
+
+input : 
+int main() {
+    int a = 10;
+    float b = 23.5;
+    if(a < b && a != 0) {
+        printf("%d", a);
+    }
+}
+
+code:
+
+%{
+#include <stdio.h>
+%}
+
+%%
+
+"int"|"float"|"if"|"else"|"while"|"for"|"printf"|"return" { printf("KEYWORD: %s\n", yytext); }
+
+\"[^\"]*\" { printf("STRING: %s\n", yytext); }
+
+"%d"|"%f"|"%c"|"%s" { printf("FORMAT SPECIFIER: %s\n", yytext); }
+
+[0-9]+"."[0-9]+ { printf("FLOAT NUMBER: %s\n", yytext); }
+
+[0-9]+ { printf("INTEGER NUMBER: %s\n", yytext); }
+
+[a-zA-Z_][a-zA-Z0-9_]* { printf("IDENTIFIER: %s\n", yytext); }
+
+"=="|"<="|">="|"!="|"<"|">" { printf("RELATIONAL OPERATOR: %s\n", yytext); }
+
+"&&"|"||" { printf("LOGICAL OPERATOR: %s\n", yytext); }
+
+"+"|"-"|"*"|"/"|"%" { printf("ARITHMETIC OPERATOR: %s\n", yytext); }
+
+"=" { printf("ASSIGNMENT OPERATOR: %s\n", yytext); }
+
+[()\[\]{};,#] { printf("PUNCTUATION: %s\n", yytext); }
+
+[ \t\n] ;
+
+. { printf("UNKNOWN: %s\n", yytext); }
+
+%%
+
+int main() {
+    printf("Enter C program:\n");
+    yylex();
+    return 0;
+}
+
+int yywrap() {
+    return 1;
+}
+
+
+
+3d ) c language with symbol table
+
+input : 
+int main() {
+    int a = 10;
+    float b = 23.5;
+    if(a < b && a != 0) {
+        printf("%d", a);
+    }
+}
+
+
+code: 
+
+%{
+#include <stdio.h>
+#include <string.h>
+
+char symtab[100][50];
+int count = 0;
+
+void add(char *word) {
+    for(int i=0;i<count;i++) {
+        if(strcmp(symtab[i], word)==0) return;
+    }
+    strcpy(symtab[count++], word);
+}
+%}
+
+%%
+
+int { printf("KEYWORD: %s\n", yytext); }
+float { printf("KEYWORD: %s\n", yytext); }
+if { printf("KEYWORD: %s\n", yytext); }
+else { printf("KEYWORD: %s\n", yytext); }
+printf { printf("KEYWORD: %s\n", yytext); }
+
+[0-9]+"."[0-9]+ { printf("FLOAT: %s\n", yytext); }
+[0-9]+ { printf("INTEGER: %s\n", yytext); }
+
+[a-zA-Z_][a-zA-Z0-9_]* { printf("IDENTIFIER: %s\n", yytext); add(yytext); }
+
+==|!=|<=|>=|<|> { printf("RELATIONAL OPERATOR: %s\n", yytext); }
+
+&&|\|\| { printf("LOGICAL OPERATOR: %s\n", yytext); }
+
+\+|\-|\*|\/|% { printf("ARITHMETIC OPERATOR: %s\n", yytext); }
+
+= { printf("ASSIGNMENT: %s\n", yytext); }
+
+\(|\)|\{|\}|;|, { printf("PUNCTUATION: %s\n", yytext); }
+
+[ \t\n] ;
+
+. { printf("UNKNOWN: %s\n", yytext); }
+
+%%
+
+int main() {
+    printf("Enter C code:\n");
+    yylex();
+
+    printf("\nSYMBOL TABLE:\n");
+    for(int i=0;i<count;i++) {
+        printf("%d -> %s\n", i+1, symtab[i]);
+    }
+
+    return 0;
+}
+
+int yywrap() {
+    return 1;
+}
+
