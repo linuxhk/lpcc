@@ -91,6 +91,11 @@ class Assignment1 {
 		pool.add(lit.size());
 	}
 
+	// 🔥 NEW FUNCTION : prints LC with source line
+	static void printLocationCounter(String line) {
+		System.out.println(LC + " -> " + line);
+	}
+
 	public static void main(String[] args) throws Exception {
 
 		BufferedReader br = new BufferedReader(new FileReader("input.txt"));
@@ -103,6 +108,9 @@ class Assignment1 {
 			line = line.trim();
 			if (line.length() == 0)
 				continue;
+
+			// 🔥 PRINT LOCATION COUNTER
+			printLocationCounter(line);
 
 			String parts[] = line.split("\\s+");
 
@@ -305,7 +313,6 @@ class Assignment1 {
 		}
 	}
 }
-
 
 input : 
 START 100
